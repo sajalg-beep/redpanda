@@ -1,6 +1,42 @@
 # Enterprise-Grade Redpanda on GKE with External Access
 
-This repository contains production-ready Kubernetes manifests for deploying Redpanda on Google Kubernetes Engine (GKE) with external LoadBalancer services.
+This repository contains production-ready configurations for deploying Redpanda on Google Kubernetes Engine (GKE) with external LoadBalancer services.
+
+## Deployment Options
+
+This repository provides **two deployment methods**:
+
+1. **Helm Chart (Recommended)** - Located in `helm/redpanda-gke/`
+   - Fully parameterized and customizable
+   - Easy upgrades and rollbacks
+   - Pre-configured values files for different environments
+   - See [HELM.md](HELM.md) for detailed instructions
+
+2. **Raw Kubernetes Manifests** - Located in `k8s/base/`
+   - Direct kubectl deployment
+   - Full control over resources
+   - See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions
+
+### Quick Start with Helm (Recommended)
+
+```bash
+# Install with Helm
+helm install redpanda ./helm/redpanda-gke \
+  --namespace redpanda \
+  --create-namespace \
+  --set external.domain=yourdomain.com
+
+# See HELM.md for complete documentation
+```
+
+### Quick Start with kubectl
+
+```bash
+# Deploy with kubectl
+kubectl apply -f k8s/base/
+
+# See DEPLOYMENT.md for complete documentation
+```
 
 ## Architecture Overview
 

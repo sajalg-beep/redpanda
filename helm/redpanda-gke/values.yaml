@@ -1,0 +1,244 @@
+# Default values for redpanda-gke
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Namespace configuration
+namespace:
+  create: true
+  name: redpanda
+
+# Redpanda image configuration
+image:
+  repository: redpandadata/redpanda
+  tag: v23.3.5
+  pullPolicy: IfNotPresent
+
+# Number of Redpanda brokers
+replicaCount: 3
+
+# Resource requests and limits per broker
+resources:
+  requests:
+    cpu: "2"
+    memory: 6Gi
+  limits:
+    cpu: "4"
+    memory: 8Gi
+
+# Redpanda configuration
+config:
+  # Developer mode (set to false for production)
+  developerMode: false
+
+  # Auto create topics
+  autoCreateTopics: true
+
+  # Default topic replications
+  defaultTopicReplications: 3
+
+  # Enable idempotence
+  enableIdempotence: true
+
+  # Enable transactions
+  enableTransactions: true
+
+  # Log segment size (1GB)
+  logSegmentSize: 1073741824
+
+  # RPK tuning options
+  tuning:
+    tuneNetwork: true
+    tuneDiskScheduler: true
+    tuneDiskNomerges: true
+    tuneDiskWriteCache: true
+    tuneFstrim: true
+    tuneCpu: true
+    tuneAioEvents: true
+    tuneClockSource: true
+    tuneSwappiness: true
+    tuneTransparentHugepages: true
+    tuneCoredump: true
+    tuneBallastFile: true
+
+# Storage configuration
+storage:
+  # Storage class for persistent volumes
+  storageClassName: redpanda-ssd
+
+  # Size of persistent volume per broker
+  size: 100Gi
+
+  # Reclaim policy (Retain or Delete)
+  reclaimPolicy: Retain
+
+  # GKE specific storage configuration
+  gke:
+    # Type of persistent disk (pd-ssd or pd-standard)
+    type: pd-ssd
+
+    # Replication type (regional-pd or none for zonal)
+    replicationType: regional-pd
+
+    # Filesystem type
+    fsType: ext4
+
+  # Enable volume expansion
+  allowVolumeExpansion: true
+
+# External access configuration
+external:
+  # Enable external access via LoadBalancer
+  enabled: true
+
+  # External domain for broker access
+  # Each broker will be accessible at redpanda-{ordinal}.domain
+  domain: example.com
+
+  # External Kafka API port
+  kafkaPort: 9094
+
+  # External admin API port
+  adminPort: 9644
+
+  # External schema registry port
+  schemaRegistryPort: 8081
+
+  # LoadBalancer configuration
+  loadBalancer:
+    # Traffic policy (Local or Cluster)
+    externalTrafficPolicy: Local
+
+    # Annotations for GKE LoadBalancer
+    annotations:
+      cloud.google.com/load-balancer-type: "External"
+
+    # Static IP configuration (optional)
+    # Uncomment and configure to use reserved static IPs
+    # staticIPs:
+    #   enabled: false
+    #   broker0: "redpanda-0-ip"
+    #   broker1: "redpanda-1-ip"
+    #   broker2: "redpanda-2-ip"
+
+# Internal service configuration
+service:
+  # Internal Kafka API port
+  kafkaPort: 9092
+
+  # RPC port for inter-broker communication
+  rpcPort: 33145
+
+  # Admin API port
+  adminPort: 9644
+
+  # Schema registry port
+  schemaRegistryPort: 8081
+
+  # Pandaproxy (HTTP proxy) port
+  pandaproxyPort: 8082
+
+# High Availability configuration
+highAvailability:
+  # Pod anti-affinity to spread brokers across nodes
+  podAntiAffinity:
+    # Use hard anti-affinity (required) or soft (preferred)
+    type: hard  # hard or soft
+
+  # PodDisruptionBudget configuration
+  podDisruptionBudget:
+    enabled: true
+    # Minimum available pods during disruptions
+    minAvailable: 2
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 3
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+
+  # Prometheus ServiceMonitor
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+    labels:
+      prometheus: kube-prometheus
+
+  # Prometheus annotations
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9644"
+    prometheus.io/path: "/metrics"
+
+# Network policy
+networkPolicy:
+  enabled: true
+
+# Service Account
+serviceAccount:
+  create: true
+  name: redpanda
+  annotations: {}
+
+# RBAC configuration
+rbac:
+  create: true
+
+# Security context
+securityContext:
+  fsGroup: 101
+  fsGroupChangePolicy: OnRootMismatch
+
+# Pod management policy (Parallel or OrderedReady)
+podManagementPolicy: Parallel
+
+# Update strategy
+updateStrategy:
+  type: RollingUpdate
+
+# Liveness probe configuration
+livenessProbe:
+  httpGet:
+    path: /v1/status/ready
+    port: 9644
+    scheme: HTTP
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 3
+
+# Readiness probe configuration
+readinessProbe:
+  httpGet:
+    path: /v1/status/ready
+    port: 9644
+    scheme: HTTP
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Redpanda startup arguments
+startupArgs:
+  smp: 2
+  memory: 4G
+  reserveMemory: 2G
+  defaultLogLevel: info
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Additional labels
+additionalLabels: {}
+
+# Additional annotations
+additionalAnnotations: {}

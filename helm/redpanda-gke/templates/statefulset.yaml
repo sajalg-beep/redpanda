@@ -1,0 +1,164 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "redpanda-gke.fullname" . }}
+  namespace: {{ include "redpanda-gke.namespace" . }}
+  labels:
+    {{- include "redpanda-gke.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "redpanda-gke.serviceName" . }}
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "redpanda-gke.selectorLabels" . | nindent 6 }}
+  podManagementPolicy: {{ .Values.podManagementPolicy }}
+  updateStrategy:
+    type: {{ .Values.updateStrategy.type }}
+  template:
+    metadata:
+      labels:
+        {{- include "redpanda-gke.selectorLabels" . | nindent 8 }}
+      annotations:
+        {{- with .Values.monitoring.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.additionalAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "redpanda-gke.serviceAccountName" . }}
+      securityContext:
+        fsGroup: {{ .Values.securityContext.fsGroup }}
+        fsGroupChangePolicy: {{ .Values.securityContext.fsGroupChangePolicy }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      affinity:
+        podAntiAffinity:
+          {{- include "redpanda-gke.podAntiAffinity" . | nindent 10 }}
+      # Init container to configure Redpanda
+      initContainers:
+        - name: redpanda-configurator
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              CONFIG=/etc/redpanda/redpanda.yaml
+
+              # Get pod ordinal from hostname
+              ORDINAL=${HOSTNAME##*-}
+
+              # Set advertised addresses
+              rpk redpanda config set redpanda.advertised_rpc_api.address ${HOSTNAME}.{{ include "redpanda-gke.internalFQDN" . }}
+              rpk redpanda config set redpanda.advertised_rpc_api.port {{ .Values.service.rpcPort }}
+
+              # Internal Kafka API
+              rpk redpanda config set redpanda.advertised_kafka_api[0].name internal
+              rpk redpanda config set redpanda.advertised_kafka_api[0].address ${HOSTNAME}.{{ include "redpanda-gke.internalFQDN" . }}
+              rpk redpanda config set redpanda.advertised_kafka_api[0].port {{ .Values.service.kafkaPort }}
+
+              {{- if .Values.external.enabled }}
+              # External Kafka API (will use external LoadBalancer)
+              rpk redpanda config set redpanda.advertised_kafka_api[1].name external
+              rpk redpanda config set redpanda.advertised_kafka_api[1].address {{ include "redpanda-gke.fullname" . }}-${ORDINAL}.{{ .Values.external.domain }}
+              rpk redpanda config set redpanda.advertised_kafka_api[1].port {{ .Values.external.kafkaPort }}
+              {{- end }}
+
+              # Seed servers for cluster formation
+              if [ "$ORDINAL" != "0" ]; then
+                rpk redpanda config set redpanda.seed_servers '[{"host":"{{ include "redpanda-gke.fullname" . }}-0.{{ include "redpanda-gke.internalFQDN" . }}","port":{{ .Values.service.rpcPort }}}]'
+              fi
+
+              # Node ID
+              rpk redpanda config set redpanda.node_id ${ORDINAL}
+
+              cat /etc/redpanda/redpanda.yaml
+          volumeMounts:
+            - name: config
+              mountPath: /etc/redpanda
+            - name: data
+              mountPath: /var/lib/redpanda/data
+      containers:
+        - name: redpanda
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - rpk
+            - redpanda
+            - start
+            - --smp={{ .Values.startupArgs.smp }}
+            - --memory={{ .Values.startupArgs.memory }}
+            - --reserve-memory={{ .Values.startupArgs.reserveMemory }}
+            - --default-log-level={{ .Values.startupArgs.defaultLogLevel }}
+            - --advertise-pandaproxy-addr=$(POD_NAME).{{ include "redpanda-gke.internalFQDN" . }}:{{ .Values.service.pandaproxyPort }}
+            - --advertise-rpc-addr=$(POD_NAME).{{ include "redpanda-gke.internalFQDN" . }}:{{ .Values.service.rpcPort }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          ports:
+            - name: kafka-internal
+              containerPort: {{ .Values.service.kafkaPort }}
+              protocol: TCP
+            {{- if .Values.external.enabled }}
+            - name: kafka-external
+              containerPort: {{ .Values.external.kafkaPort }}
+              protocol: TCP
+            {{- end }}
+            - name: admin
+              containerPort: {{ .Values.service.adminPort }}
+              protocol: TCP
+            - name: rpc
+              containerPort: {{ .Values.service.rpcPort }}
+              protocol: TCP
+            - name: schema-registry
+              containerPort: {{ .Values.service.schemaRegistryPort }}
+              protocol: TCP
+            - name: pandaproxy
+              containerPort: {{ .Values.service.pandaproxyPort }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/redpanda/data
+            - name: config
+              mountPath: /etc/redpanda
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "redpanda-gke.fullname" . }}-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "redpanda-gke.labels" . | nindent 10 }}
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: {{ .Values.storage.storageClassName }}
+        resources:
+          requests:
+            storage: {{ .Values.storage.size }}

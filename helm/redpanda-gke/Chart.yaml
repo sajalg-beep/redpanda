@@ -1,0 +1,19 @@
+apiVersion: v2
+name: redpanda-gke
+description: Enterprise-grade Redpanda deployment for Google Kubernetes Engine with external access
+type: application
+version: 1.0.0
+appVersion: "23.3.5"
+keywords:
+  - redpanda
+  - kafka
+  - streaming
+  - gke
+  - google cloud
+  - message queue
+home: https://redpanda.com
+sources:
+  - https://github.com/redpanda-data/redpanda
+maintainers:
+  - name: Redpanda GKE Team
+icon: https://avatars.githubusercontent.com/u/67263907

@@ -1,0 +1,59 @@
+{{- if .Values.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "redpanda-gke.fullname" . }}-network-policy
+  namespace: {{ include "redpanda-gke.namespace" . }}
+  labels:
+    {{- include "redpanda-gke.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "redpanda-gke.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow inter-broker communication
+    - from:
+        - podSelector:
+            matchLabels:
+              app: redpanda
+      ports:
+        - protocol: TCP
+          port: {{ .Values.service.rpcPort }}
+        - protocol: TCP
+          port: {{ .Values.service.kafkaPort }}
+    # Allow external Kafka access
+    - from: []
+      ports:
+        {{- if .Values.external.enabled }}
+        - protocol: TCP
+          port: {{ .Values.external.kafkaPort }}
+        {{- end }}
+    # Allow admin/monitoring access
+    - from: []
+      ports:
+        - protocol: TCP
+          port: {{ .Values.service.adminPort }}
+        - protocol: TCP
+          port: {{ .Values.service.schemaRegistryPort }}
+        - protocol: TCP
+          port: {{ .Values.service.pandaproxyPort }}
+  egress:
+    # Allow all egress traffic
+    - to:
+        - podSelector: {}
+    # Allow DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+    # Allow external communication
+    - to:
+        - namespaceSelector: {}
+{{- end }}

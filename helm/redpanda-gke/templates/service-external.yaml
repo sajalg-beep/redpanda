@@ -1,0 +1,48 @@
+{{- if .Values.external.enabled }}
+{{- $fullName := include "redpanda-gke.fullname" . }}
+{{- $namespace := include "redpanda-gke.namespace" . }}
+{{- $labels := include "redpanda-gke.labels" . }}
+{{- $selectorLabels := include "redpanda-gke.selectorLabels" . }}
+{{- range $i := until (int .Values.replicaCount) }}
+---
+# External LoadBalancer service for Redpanda broker {{ $i }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullName }}-{{ $i }}-external
+  namespace: {{ $namespace }}
+  labels:
+    {{- $labels | nindent 4 }}
+    broker: "{{ $i }}"
+  annotations:
+    {{- toYaml $.Values.external.loadBalancer.annotations | nindent 4 }}
+    {{- if and (hasKey $.Values.external.loadBalancer "staticIPs") ($.Values.external.loadBalancer.staticIPs.enabled) }}
+    {{- if eq $i 0 }}
+    networking.gke.io/load-balancer-ip-addresses: "{{ $.Values.external.loadBalancer.staticIPs.broker0 }}"
+    {{- else if eq $i 1 }}
+    networking.gke.io/load-balancer-ip-addresses: "{{ $.Values.external.loadBalancer.staticIPs.broker1 }}"
+    {{- else if eq $i 2 }}
+    networking.gke.io/load-balancer-ip-addresses: "{{ $.Values.external.loadBalancer.staticIPs.broker2 }}"
+    {{- end }}
+    {{- end }}
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: {{ $.Values.external.loadBalancer.externalTrafficPolicy }}
+  selector:
+    app: redpanda
+    statefulset.kubernetes.io/pod-name: {{ $fullName }}-{{ $i }}
+  ports:
+    - name: kafka-external
+      port: {{ $.Values.external.kafkaPort }}
+      targetPort: {{ $.Values.external.kafkaPort }}
+      protocol: TCP
+    - name: admin
+      port: {{ $.Values.external.adminPort }}
+      targetPort: {{ $.Values.external.adminPort }}
+      protocol: TCP
+    - name: schema-registry
+      port: {{ $.Values.external.schemaRegistryPort }}
+      targetPort: {{ $.Values.external.schemaRegistryPort }}
+      protocol: TCP
+{{- end }}
+{{- end }}

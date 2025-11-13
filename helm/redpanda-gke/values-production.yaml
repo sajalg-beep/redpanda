@@ -1,0 +1,71 @@
+# Production values for redpanda-gke
+# This configuration is optimized for production workloads
+
+# Number of brokers
+replicaCount: 3
+
+# External access configuration
+external:
+  enabled: true
+  domain: redpanda.example.com  # CHANGE THIS to your domain
+
+  # Uncomment to use static IPs (recommended for production)
+  # loadBalancer:
+  #   staticIPs:
+  #     enabled: true
+  #     broker0: "redpanda-0-ip"
+  #     broker1: "redpanda-1-ip"
+  #     broker2: "redpanda-2-ip"
+
+# Production storage configuration
+storage:
+  size: 200Gi
+  gke:
+    type: pd-ssd
+    replicationType: regional-pd
+
+# Production resource allocation
+resources:
+  requests:
+    cpu: "4"
+    memory: 12Gi
+  limits:
+    cpu: "8"
+    memory: 16Gi
+
+# Redpanda startup configuration
+startupArgs:
+  smp: 4
+  memory: 10G
+  reserveMemory: 4G
+  defaultLogLevel: info
+
+# Production Redpanda configuration
+config:
+  developerMode: false
+  autoCreateTopics: false  # Disable for production
+  defaultTopicReplications: 3
+  enableIdempotence: true
+  enableTransactions: true
+
+# High availability settings
+highAvailability:
+  podAntiAffinity:
+    type: hard  # Enforce hard anti-affinity
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 2
+
+# Enable monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+
+# Network policy enabled
+networkPolicy:
+  enabled: true
+
+# Autoscaling disabled for production (use manual scaling)
+autoscaling:
+  enabled: false

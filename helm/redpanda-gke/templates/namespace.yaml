@@ -1,0 +1,11 @@
+{{- if .Values.namespace.create }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "redpanda-gke.namespace" . }}
+  labels:
+    {{- include "redpanda-gke.labels" . | nindent 4 }}
+    name: {{ include "redpanda-gke.namespace" . }}
+    environment: production
+{{- end }}

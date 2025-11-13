@@ -1,0 +1,60 @@
+# Development values for redpanda-gke
+# This configuration is optimized for development/testing
+
+# Single broker for development
+replicaCount: 1
+
+# Disable external access for dev
+external:
+  enabled: false
+
+# Minimal storage
+storage:
+  size: 50Gi
+  gke:
+    type: pd-standard  # Use standard disks for cost savings
+
+# Minimal resources
+resources:
+  requests:
+    cpu: "1"
+    memory: 4Gi
+  limits:
+    cpu: "2"
+    memory: 6Gi
+
+# Development startup configuration
+startupArgs:
+  smp: 1
+  memory: 3G
+  reserveMemory: 1G
+  defaultLogLevel: debug
+
+# Development Redpanda configuration
+config:
+  developerMode: true
+  autoCreateTopics: true
+  defaultTopicReplications: 1
+  enableIdempotence: true
+  enableTransactions: true
+
+# Relaxed HA settings for dev
+highAvailability:
+  podAntiAffinity:
+    type: soft
+  podDisruptionBudget:
+    enabled: false
+
+# Basic monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: false
+
+# Network policy disabled for easier dev access
+networkPolicy:
+  enabled: false
+
+# No autoscaling in dev
+autoscaling:
+  enabled: false

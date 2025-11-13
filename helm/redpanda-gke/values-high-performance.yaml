@@ -1,0 +1,69 @@
+# High-performance values for redpanda-gke
+# This configuration is optimized for high-throughput workloads
+
+# More brokers for better parallelism
+replicaCount: 5
+
+# External access enabled
+external:
+  enabled: true
+  domain: redpanda.example.com  # CHANGE THIS
+
+# Large storage for high-throughput
+storage:
+  size: 500Gi
+  gke:
+    type: pd-ssd
+    replicationType: regional-pd
+
+# Maximum resource allocation
+resources:
+  requests:
+    cpu: "8"
+    memory: 24Gi
+  limits:
+    cpu: "16"
+    memory: 32Gi
+
+# High-performance startup configuration
+startupArgs:
+  smp: 8
+  memory: 20G
+  reserveMemory: 10G
+  defaultLogLevel: info
+
+# Optimized Redpanda configuration
+config:
+  developerMode: false
+  autoCreateTopics: false
+  defaultTopicReplications: 3
+  enableIdempotence: true
+  enableTransactions: true
+  logSegmentSize: 2147483648  # 2GB segments
+
+# Strict HA requirements
+highAvailability:
+  podAntiAffinity:
+    type: hard
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 3  # More than half must be available
+
+# Full monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 15s  # More frequent scraping
+
+# Network policy enabled
+networkPolicy:
+  enabled: true
+
+# Optional autoscaling for load spikes
+autoscaling:
+  enabled: true
+  minReplicas: 5
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 75

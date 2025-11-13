@@ -1,0 +1,160 @@
+==============================================================================
+  REDPANDA ON GKE - SUCCESSFULLY DEPLOYED
+==============================================================================
+
+Release Name:   {{ .Release.Name }}
+Namespace:      {{ include "redpanda-gke.namespace" . }}
+Chart Version:  {{ .Chart.Version }}
+App Version:    {{ .Chart.AppVersion }}
+
+Your Redpanda cluster is being deployed with {{ .Values.replicaCount }} brokers.
+
+==============================================================================
+  DEPLOYMENT STATUS
+==============================================================================
+
+To check the status of your Redpanda deployment:
+
+  kubectl get pods -n {{ include "redpanda-gke.namespace" . }} -l app=redpanda -w
+
+To see detailed information about the StatefulSet:
+
+  kubectl describe statefulset {{ include "redpanda-gke.fullname" . }} -n {{ include "redpanda-gke.namespace" . }}
+
+Wait for all pods to be in the Running state and Ready (1/1).
+
+==============================================================================
+  INTERNAL ACCESS (from within the cluster)
+==============================================================================
+
+Internal Kafka Bootstrap Servers:
+
+  {{ include "redpanda-gke.fullname" . }}.{{ include "redpanda-gke.namespace" . }}.svc.cluster.local:{{ .Values.service.kafkaPort }}
+
+Individual Broker Addresses:
+
+{{- range $i := until (int .Values.replicaCount) }}
+  {{ include "redpanda-gke.fullname" $ }}-{{ $i }}.{{ include "redpanda-gke.serviceName" $ }}.{{ include "redpanda-gke.namespace" $ }}.svc.cluster.local:{{ $.Values.service.kafkaPort }}
+{{- end }}
+
+Admin API (internal):
+
+  {{ include "redpanda-gke.fullname" . }}.{{ include "redpanda-gke.namespace" . }}.svc.cluster.local:{{ .Values.service.adminPort }}
+
+Schema Registry:
+
+  {{ include "redpanda-gke.fullname" . }}.{{ include "redpanda-gke.namespace" . }}.svc.cluster.local:{{ .Values.service.schemaRegistryPort }}
+
+{{- if .Values.external.enabled }}
+
+==============================================================================
+  EXTERNAL ACCESS (from outside the cluster)
+==============================================================================
+
+Get the external LoadBalancer IPs:
+
+  kubectl get svc -n {{ include "redpanda-gke.namespace" . }} | grep external
+
+Wait for EXTERNAL-IP to be assigned (may take a few minutes).
+
+Once IPs are assigned, configure DNS A records:
+
+{{- range $i := until (int .Values.replicaCount) }}
+  {{ include "redpanda-gke.fullname" $ }}-{{ $i }}.{{ $.Values.external.domain }}  →  <EXTERNAL-IP-{{ $i }}>
+{{- end }}
+
+External Kafka Bootstrap Servers (after DNS configuration):
+
+{{- range $i := until (int .Values.replicaCount) }}
+  {{ include "redpanda-gke.fullname" $ }}-{{ $i }}.{{ $.Values.external.domain }}:{{ $.Values.external.kafkaPort }}
+{{- end }}
+
+Example rpk command:
+
+  rpk cluster info --brokers {{ include "redpanda-gke.fullname" . }}-0.{{ .Values.external.domain }}:{{ .Values.external.kafkaPort }},{{ include "redpanda-gke.fullname" . }}-1.{{ .Values.external.domain }}:{{ .Values.external.kafkaPort }},{{ include "redpanda-gke.fullname" . }}-2.{{ .Values.external.domain }}:{{ .Values.external.kafkaPort }}
+
+{{- end }}
+
+==============================================================================
+  CLUSTER OPERATIONS
+==============================================================================
+
+Check cluster health:
+
+  kubectl exec -n {{ include "redpanda-gke.namespace" . }} {{ include "redpanda-gke.fullname" . }}-0 -- rpk cluster health
+
+View cluster info:
+
+  kubectl exec -n {{ include "redpanda-gke.fullname" . }} {{ include "redpanda-gke.fullname" . }}-0 -- rpk cluster info
+
+Create a topic:
+
+  kubectl exec -n {{ include "redpanda-gke.namespace" . }} {{ include "redpanda-gke.fullname" . }}-0 -- rpk topic create test-topic -p 3 -r 3
+
+List topics:
+
+  kubectl exec -n {{ include "redpanda-gke.namespace" . }} {{ include "redpanda-gke.fullname" . }}-0 -- rpk topic list
+
+View logs:
+
+  kubectl logs -n {{ include "redpanda-gke.namespace" . }} {{ include "redpanda-gke.fullname" . }}-0 -f
+
+{{- if .Values.monitoring.enabled }}
+
+==============================================================================
+  MONITORING
+==============================================================================
+
+Prometheus metrics are available at:
+
+  http://{{ include "redpanda-gke.fullname" . }}-metrics.{{ include "redpanda-gke.namespace" . }}.svc.cluster.local:{{ .Values.service.adminPort }}/metrics
+
+Port-forward to view metrics locally:
+
+  kubectl port-forward -n {{ include "redpanda-gke.namespace" . }} svc/{{ include "redpanda-gke.fullname" . }}-metrics {{ .Values.service.adminPort }}:{{ .Values.service.adminPort }}
+
+Then visit: http://localhost:{{ .Values.service.adminPort }}/metrics
+
+{{- if .Values.monitoring.serviceMonitor.enabled }}
+
+ServiceMonitor has been created for Prometheus Operator.
+
+{{- end }}
+{{- end }}
+
+==============================================================================
+  STORAGE
+==============================================================================
+
+Storage Class: {{ .Values.storage.storageClassName }}
+Storage Size:  {{ .Values.storage.size }} per broker
+Total Storage: {{ mul (int .Values.replicaCount) (regexFind "[0-9]+" .Values.storage.size | atoi) }}Gi
+
+View Persistent Volume Claims:
+
+  kubectl get pvc -n {{ include "redpanda-gke.namespace" . }}
+
+==============================================================================
+  NEXT STEPS
+==============================================================================
+
+{{- if .Values.external.enabled }}
+1. Wait for external LoadBalancer IPs to be assigned
+2. Configure DNS records to point to the external IPs
+3. Test connectivity from external clients
+{{- else }}
+1. Deploy applications in the same cluster to connect internally
+2. Use the internal bootstrap servers listed above
+{{- end }}
+4. Monitor cluster health and metrics
+5. Review the documentation in the repository README
+
+==============================================================================
+
+For more information, visit:
+  - Redpanda Docs: https://docs.redpanda.com/
+  - Chart Repository: https://github.com/your-repo/redpanda-gke
+
+Need help? Check the troubleshooting section in the README.
+
+==============================================================================

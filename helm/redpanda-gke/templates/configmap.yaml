@@ -1,0 +1,90 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "redpanda-gke.fullname" . }}-config
+  namespace: {{ include "redpanda-gke.namespace" . }}
+  labels:
+    {{- include "redpanda-gke.labels" . | nindent 4 }}
+data:
+  redpanda.yaml: |
+    # Redpanda enterprise configuration
+    redpanda:
+      # Data directory
+      data_directory: /var/lib/redpanda/data
+
+      # Cluster configuration
+      seed_servers: []
+
+      # RPC server configuration (internal communication)
+      rpc_server:
+        address: 0.0.0.0
+        port: {{ .Values.service.rpcPort }}
+
+      # Kafka API configuration
+      kafka_api:
+        - name: internal
+          address: 0.0.0.0
+          port: {{ .Values.service.kafkaPort }}
+        {{- if .Values.external.enabled }}
+        - name: external
+          address: 0.0.0.0
+          port: {{ .Values.external.kafkaPort }}
+        {{- end }}
+
+      # Admin API configuration
+      admin:
+        - name: internal
+          address: 0.0.0.0
+          port: {{ .Values.service.adminPort }}
+
+      # Developer mode (set to false for production)
+      developer_mode: {{ .Values.config.developerMode }}
+
+      # Auto create topics
+      auto_create_topics_enabled: {{ .Values.config.autoCreateTopics }}
+
+      # Replication settings
+      default_topic_replications: {{ .Values.config.defaultTopicReplications }}
+
+      # Transaction settings
+      enable_idempotence: {{ .Values.config.enableIdempotence }}
+      enable_transactions: {{ .Values.config.enableTransactions }}
+
+      # Log settings
+      log_segment_size: {{ .Values.config.logSegmentSize }}
+
+    # Cluster resource management
+    rpk:
+      enable_usage_stats: false
+      tune_network: {{ .Values.config.tuning.tuneNetwork }}
+      tune_disk_scheduler: {{ .Values.config.tuning.tuneDiskScheduler }}
+      tune_disk_nomerges: {{ .Values.config.tuning.tuneDiskNomerges }}
+      tune_disk_write_cache: {{ .Values.config.tuning.tuneDiskWriteCache }}
+      tune_fstrim: {{ .Values.config.tuning.tuneFstrim }}
+      tune_cpu: {{ .Values.config.tuning.tuneCpu }}
+      tune_aio_events: {{ .Values.config.tuning.tuneAioEvents }}
+      tune_clocksource: {{ .Values.config.tuning.tuneClockSource }}
+      tune_swappiness: {{ .Values.config.tuning.tuneSwappiness }}
+      tune_transparent_hugepages: {{ .Values.config.tuning.tuneTransparentHugepages }}
+      tune_coredump: {{ .Values.config.tuning.tuneCoredump }}
+      tune_ballast_file: {{ .Values.config.tuning.tuneBallastFile }}
+
+    # Schema registry configuration
+    schema_registry:
+      schema_registry_api:
+        - name: internal
+          address: 0.0.0.0
+          port: {{ .Values.service.schemaRegistryPort }}
+
+    # Pandaproxy (HTTP proxy) configuration
+    pandaproxy:
+      pandaproxy_api:
+        - name: internal
+          address: 0.0.0.0
+          port: {{ .Values.service.pandaproxyPort }}
+
+    # Monitoring configuration
+    metrics_reporter:
+      enabled: {{ .Values.monitoring.enabled }}
+      report_interval_ms: 60000

@@ -1,0 +1,66 @@
+---
+# Internal headless service for StatefulSet DNS and inter-broker communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "redpanda-gke.serviceName" . }}
+  namespace: {{ include "redpanda-gke.namespace" . }}
+  labels:
+    {{- include "redpanda-gke.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    {{- include "redpanda-gke.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: kafka-internal
+      port: {{ .Values.service.kafkaPort }}
+      targetPort: {{ .Values.service.kafkaPort }}
+      protocol: TCP
+    - name: rpc
+      port: {{ .Values.service.rpcPort }}
+      targetPort: {{ .Values.service.rpcPort }}
+      protocol: TCP
+    - name: admin
+      port: {{ .Values.service.adminPort }}
+      targetPort: {{ .Values.service.adminPort }}
+      protocol: TCP
+    - name: schema-registry
+      port: {{ .Values.service.schemaRegistryPort }}
+      targetPort: {{ .Values.service.schemaRegistryPort }}
+      protocol: TCP
+    - name: pandaproxy
+      port: {{ .Values.service.pandaproxyPort }}
+      targetPort: {{ .Values.service.pandaproxyPort }}
+      protocol: TCP
+---
+# Regular ClusterIP service for internal client access
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "redpanda-gke.fullname" . }}
+  namespace: {{ include "redpanda-gke.namespace" . }}
+  labels:
+    {{- include "redpanda-gke.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "redpanda-gke.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: kafka
+      port: {{ .Values.service.kafkaPort }}
+      targetPort: {{ .Values.service.kafkaPort }}
+      protocol: TCP
+    - name: admin
+      port: {{ .Values.service.adminPort }}
+      targetPort: {{ .Values.service.adminPort }}
+      protocol: TCP
+    - name: schema-registry
+      port: {{ .Values.service.schemaRegistryPort }}
+      targetPort: {{ .Values.service.schemaRegistryPort }}
+      protocol: TCP
+    - name: pandaproxy
+      port: {{ .Values.service.pandaproxyPort }}
+      targetPort: {{ .Values.service.pandaproxyPort }}
+      protocol: TCP
+  sessionAffinity: None
