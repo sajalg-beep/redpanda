@@ -1,0 +1,88 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redpanda-config
+  namespace: redpanda
+  labels:
+    app: redpanda
+data:
+  redpanda.yaml: |
+    # Redpanda enterprise configuration
+    redpanda:
+      # Data directory
+      data_directory: /var/lib/redpanda/data
+
+      # Cluster configuration
+      seed_servers: []
+
+      # RPC server configuration (internal communication)
+      rpc_server:
+        address: 0.0.0.0
+        port: 33145
+
+      # Kafka API configuration
+      kafka_api:
+        - name: internal
+          address: 0.0.0.0
+          port: 9092
+        - name: external
+          address: 0.0.0.0
+          port: 9094
+
+      # Admin API configuration
+      admin:
+        - name: internal
+          address: 0.0.0.0
+          port: 9644
+
+      # Developer mode (set to false for production)
+      developer_mode: false
+
+      # Auto create topics
+      auto_create_topics_enabled: true
+
+      # Replication settings
+      default_topic_replications: 3
+
+      # Transaction settings
+      enable_idempotence: true
+      enable_transactions: true
+
+      # Log settings
+      log_segment_size: 1073741824  # 1GB
+
+    # Cluster resource management
+    rpk:
+      enable_usage_stats: false
+      tune_network: true
+      tune_disk_scheduler: true
+      tune_disk_nomerges: true
+      tune_disk_write_cache: true
+      tune_fstrim: true
+      tune_cpu: true
+      tune_aio_events: true
+      tune_clocksource: true
+      tune_swappiness: true
+      tune_transparent_hugepages: true
+      tune_coredump: true
+      tune_ballast_file: true
+
+    # Schema registry configuration
+    schema_registry:
+      schema_registry_api:
+        - name: internal
+          address: 0.0.0.0
+          port: 8081
+
+    # Pandaproxy (HTTP proxy) configuration
+    pandaproxy:
+      pandaproxy_api:
+        - name: internal
+          address: 0.0.0.0
+          port: 8082
+
+    # Monitoring configuration
+    metrics_reporter:
+      enabled: true
+      report_interval_ms: 60000

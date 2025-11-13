@@ -1,0 +1,80 @@
+---
+# Example producer and consumer deployment for testing
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-client-config
+  namespace: redpanda
+data:
+  bootstrap-servers: "redpanda.redpanda.svc.cluster.local:9092"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-producer
+  namespace: redpanda
+  labels:
+    app: kafka-producer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-producer
+  template:
+    metadata:
+      labels:
+        app: kafka-producer
+    spec:
+      containers:
+        - name: producer
+          image: redpandadata/redpanda:v23.3.5
+          command:
+            - /bin/bash
+            - -c
+            - |
+              echo "Starting producer..."
+              while true; do
+                echo "Message at $(date)" | rpk topic produce test-topic --brokers redpanda.redpanda.svc.cluster.local:9092
+                sleep 5
+              done
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-consumer
+  namespace: redpanda
+  labels:
+    app: kafka-consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-consumer
+  template:
+    metadata:
+      labels:
+        app: kafka-consumer
+    spec:
+      containers:
+        - name: consumer
+          image: redpandadata/redpanda:v23.3.5
+          command:
+            - /bin/bash
+            - -c
+            - |
+              echo "Starting consumer..."
+              rpk topic consume test-topic --brokers redpanda.redpanda.svc.cluster.local:9092
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi

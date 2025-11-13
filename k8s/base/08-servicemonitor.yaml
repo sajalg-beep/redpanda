@@ -1,0 +1,44 @@
+---
+# ServiceMonitor for Prometheus Operator (optional - requires Prometheus Operator)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: redpanda
+  namespace: redpanda
+  labels:
+    app: redpanda
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: redpanda
+  endpoints:
+    - port: admin
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+  namespaceSelector:
+    matchNames:
+      - redpanda
+---
+# Additional monitoring service for Prometheus scraping
+apiVersion: v1
+kind: Service
+metadata:
+  name: redpanda-metrics
+  namespace: redpanda
+  labels:
+    app: redpanda
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9644"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  selector:
+    app: redpanda
+  ports:
+    - name: metrics
+      port: 9644
+      targetPort: 9644
+      protocol: TCP

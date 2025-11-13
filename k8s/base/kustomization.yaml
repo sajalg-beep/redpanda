@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: redpanda
+
+resources:
+  - 00-namespace.yaml
+  - 01-storage-class.yaml
+  - 02-serviceaccount.yaml
+  - 03-configmap.yaml
+  - 04-statefulset.yaml
+  - 05-service-internal.yaml
+  - 06-service-external.yaml
+  - 07-poddisruptionbudget.yaml
+  - 08-servicemonitor.yaml
+  - 09-network-policy.yaml
+  # Uncomment if you want to enable HPA
+  # - 10-hpa.yaml
+
+commonLabels:
+  app.kubernetes.io/name: redpanda
+  app.kubernetes.io/component: broker
+  app.kubernetes.io/part-of: redpanda-cluster

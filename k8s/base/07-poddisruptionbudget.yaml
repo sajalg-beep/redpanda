@@ -1,0 +1,14 @@
+---
+# PodDisruptionBudget ensures high availability during node maintenance
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redpanda-pdb
+  namespace: redpanda
+  labels:
+    app: redpanda
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: redpanda

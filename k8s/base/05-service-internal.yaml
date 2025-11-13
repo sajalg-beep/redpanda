@@ -1,0 +1,66 @@
+---
+# Internal headless service for StatefulSet DNS and inter-broker communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: redpanda-internal
+  namespace: redpanda
+  labels:
+    app: redpanda
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app: redpanda
+  ports:
+    - name: kafka-internal
+      port: 9092
+      targetPort: 9092
+      protocol: TCP
+    - name: rpc
+      port: 33145
+      targetPort: 33145
+      protocol: TCP
+    - name: admin
+      port: 9644
+      targetPort: 9644
+      protocol: TCP
+    - name: schema-registry
+      port: 8081
+      targetPort: 8081
+      protocol: TCP
+    - name: pandaproxy
+      port: 8082
+      targetPort: 8082
+      protocol: TCP
+---
+# Regular ClusterIP service for internal client access
+apiVersion: v1
+kind: Service
+metadata:
+  name: redpanda
+  namespace: redpanda
+  labels:
+    app: redpanda
+spec:
+  type: ClusterIP
+  selector:
+    app: redpanda
+  ports:
+    - name: kafka
+      port: 9092
+      targetPort: 9092
+      protocol: TCP
+    - name: admin
+      port: 9644
+      targetPort: 9644
+      protocol: TCP
+    - name: schema-registry
+      port: 8081
+      targetPort: 8081
+      protocol: TCP
+    - name: pandaproxy
+      port: 8082
+      targetPort: 8082
+      protocol: TCP
+  sessionAffinity: None

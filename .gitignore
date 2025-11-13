@@ -1,0 +1,28 @@
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
+
+# Kubernetes secrets (if any)
+*secret*.yaml
+*.key
+*.crt
+*.pem
+
+# Backup files
+*.backup
+*.bak
+
+# Environment specific configs
+.env
+.env.local

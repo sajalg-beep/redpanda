@@ -1,0 +1,184 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redpanda
+  namespace: redpanda
+  labels:
+    app: redpanda
+spec:
+  serviceName: redpanda-internal
+  replicas: 3
+  selector:
+    matchLabels:
+      app: redpanda
+  podManagementPolicy: Parallel
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: redpanda
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9644"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: redpanda
+      securityContext:
+        fsGroup: 101
+        fsGroupChangePolicy: OnRootMismatch
+      # Anti-affinity to spread brokers across nodes
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - redpanda
+              topologyKey: kubernetes.io/hostname
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - redpanda
+                topologyKey: topology.kubernetes.io/zone
+      # Init container to configure Redpanda
+      initContainers:
+        - name: redpanda-configurator
+          image: redpandadata/redpanda:v23.3.5
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              CONFIG=/etc/redpanda/redpanda.yaml
+
+              # Get pod ordinal from hostname
+              ORDINAL=${HOSTNAME##*-}
+
+              # Set advertised addresses
+              rpk redpanda config set redpanda.advertised_rpc_api.address ${HOSTNAME}.redpanda-internal.redpanda.svc.cluster.local
+              rpk redpanda config set redpanda.advertised_rpc_api.port 33145
+
+              # Internal Kafka API
+              rpk redpanda config set redpanda.advertised_kafka_api[0].name internal
+              rpk redpanda config set redpanda.advertised_kafka_api[0].address ${HOSTNAME}.redpanda-internal.redpanda.svc.cluster.local
+              rpk redpanda config set redpanda.advertised_kafka_api[0].port 9092
+
+              # External Kafka API (will use external LoadBalancer)
+              rpk redpanda config set redpanda.advertised_kafka_api[1].name external
+              rpk redpanda config set redpanda.advertised_kafka_api[1].address redpanda-${ORDINAL}.example.com
+              rpk redpanda config set redpanda.advertised_kafka_api[1].port 9094
+
+              # Seed servers for cluster formation
+              if [ "$ORDINAL" != "0" ]; then
+                rpk redpanda config set redpanda.seed_servers '[{"host":"redpanda-0.redpanda-internal.redpanda.svc.cluster.local","port":33145}]'
+              fi
+
+              # Node ID
+              rpk redpanda config set redpanda.node_id ${ORDINAL}
+
+              cat /etc/redpanda/redpanda.yaml
+          volumeMounts:
+            - name: config
+              mountPath: /etc/redpanda
+            - name: data
+              mountPath: /var/lib/redpanda/data
+      containers:
+        - name: redpanda
+          image: redpandadata/redpanda:v23.3.5
+          command:
+            - rpk
+            - redpanda
+            - start
+            - --smp=2
+            - --memory=4G
+            - --reserve-memory=2G
+            - --default-log-level=info
+            - --advertise-pandaproxy-addr=$(POD_NAME).redpanda-internal.redpanda.svc.cluster.local:8082
+            - --advertise-rpc-addr=$(POD_NAME).redpanda-internal.redpanda.svc.cluster.local:33145
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          ports:
+            - name: kafka-internal
+              containerPort: 9092
+              protocol: TCP
+            - name: kafka-external
+              containerPort: 9094
+              protocol: TCP
+            - name: admin
+              containerPort: 9644
+              protocol: TCP
+            - name: rpc
+              containerPort: 33145
+              protocol: TCP
+            - name: schema-registry
+              containerPort: 8081
+              protocol: TCP
+            - name: pandaproxy
+              containerPort: 8082
+              protocol: TCP
+          resources:
+            requests:
+              cpu: "2"
+              memory: 6Gi
+            limits:
+              cpu: "4"
+              memory: 8Gi
+          livenessProbe:
+            httpGet:
+              path: /v1/status/ready
+              port: 9644
+              scheme: HTTP
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /v1/status/ready
+              port: 9644
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/redpanda/data
+            - name: config
+              mountPath: /etc/redpanda
+      volumes:
+        - name: config
+          configMap:
+            name: redpanda-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          app: redpanda
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: redpanda-ssd
+        resources:
+          requests:
+            storage: 100Gi
